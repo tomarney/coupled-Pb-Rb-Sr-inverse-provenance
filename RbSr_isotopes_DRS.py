@@ -1,0 +1,336 @@
+# / Type: DRS
+# / Name: Rb-Sr Isotopes (Arney et al.)
+# / Authors: iolite Software, T. Arney
+# / Description: A basic Rb-Sr isotope DRS, based on that described in Redaa et al. J. Anal. At. Spectrom., 2021, 36, 322
+# / References: https://doi.org/10.1039/D0JA00299B
+# / Version: 0.3
+# / Contact: support@iolite-software.com
+
+from iolite import QtGui
+from iolite.types import Result
+import numpy as np
+
+
+"""
+The following functions are for calculating associated results (i.e. error correlations)
+"""
+
+
+def Rb87_Sr87_Sr86_error_corr(sel):
+    result = Result()
+
+    try:
+        StdCorr_Sr87s_Sr86s = data.timeSeries("StdCorr_Sr87s_Sr86s")
+        StdCorr_Rb87_Sr86s = data.timeSeries("StdCorr_Rb87_Sr86s")
+    except RuntimeError as e:
+        print(e)
+        return result
+
+    array_1 = StdCorr_Sr87s_Sr86s.dataForSelection(sel)
+    array_2 = StdCorr_Rb87_Sr86s.dataForSelection(sel)
+
+    result.setValue(np.corrcoef(array_1, array_2)[0, 1])
+    return result
+
+
+def Rb87_Sr87_error_corr(sel):
+    result = Result()
+
+    try:
+        Sr87s_Rb87_Raw = data.timeSeries("Sr87s_Rb87_Raw")
+        StdCorr_Rb87_Sr86s = data.timeSeries("StdCorr_Rb87_Sr86s")
+    except RuntimeError as e:
+        print(e)
+        return result
+
+    array_1 = Sr87s_Rb87_Raw.dataForSelection(sel)
+    array_2 = StdCorr_Rb87_Sr86s.dataForSelection(sel)
+
+    result.setValue(np.corrcoef(array_1, array_2)[0, 1])
+    return result
+
+
+"""
+Main DRS calculation
+"""
+
+
+def runDRS():
+
+    drs.message("Starting Rb-Sr isotopes DRS...")
+    drs.progress(0)
+
+    # Get settings
+    settings = drs.settings()
+    print(settings)
+
+    indexChannel = data.timeSeries(settings["IndexChannel"])
+    rmName = settings["ReferenceMaterial"]
+    maskOption = settings["Mask"]
+    maskChannel = data.timeSeries(settings["MaskChannel"])
+    cutoff = settings["MaskCutoff"]
+    trim = settings["MaskTrim"]
+    massShift = settings["MassShift"]
+
+    # Create debug messages for the settings being used
+    IoLog.debug("indexChannelName = %s" % indexChannel.name)
+    IoLog.debug("Masking data  = True" if maskOption else "Masking data  = False")
+    IoLog.debug("maskChannelName = %s" % maskChannel.name)
+    IoLog.debug("maskCutoff = %f" % cutoff)
+    IoLog.debug("maskTrim = %f" % trim)
+    IoLog.debug("massShift = %f" % massShift)
+
+    # Setup index time
+    drs.message("Setting up index time...")
+    drs.progress(5)
+    drs.setIndexChannel(indexChannel)
+
+    # Setup the mask
+    if maskOption:
+        drs.message("Making mask...")
+        drs.progress(10)
+        mask = drs.createMaskFromCutoff(maskChannel, cutoff, trim)
+        data.createTimeSeries("mask", data.Intermediate, indexChannel.time(), mask)
+    else:
+        mask = np.ones_like(indexChannel.data())
+        data.createTimeSeries("mask", data.Intermediate, indexChannel.time(), mask)
+
+    # Interp onto index time and baseline subtract
+    drs.message("Interpolating onto index time and baseline subtracting...")
+    drs.progress(25)
+
+    allInputChannels = data.timeSeriesList(data.Input)
+    blGrp = None
+
+    if len(data.selectionGroupList(data.Baseline)) > 1:
+        IoLog.error("There are multiple baseline groups. Rb-Sr DRS cannot proceed...")
+        drs.message("Error. See Messages")
+        drs.progress(100)
+        drs.finished()
+        return
+    elif len(data.selectionGroupList(data.Baseline)) < 1:
+        IoLog.error(
+            "No baselines. Please select some baselines. Rb-Sr DRS cannot proceed..."
+        )
+        drs.message("Error. See Messages")
+        drs.progress(100)
+        drs.finished()
+        return
+    else:
+        blGrp = data.selectionGroupList(data.Baseline)[0]
+
+    if len(blGrp.selections()) < 1:
+        IoLog.error(
+            "No baseline selections. Please select some baselines. Rb-Sr DRS cannot proceed..."
+        )
+        drs.message("Error. See Messages")
+        drs.progress(100)
+        drs.finished()
+        return
+
+    for counter, channel in enumerate(allInputChannels):
+        drs.message("Baseline subtracting %s" % channel.name)
+
+        drs.baselineSubtract(blGrp, [allInputChannels[counter]], mask, 25, 50)
+        cps_ch = data.timeSeries(channel.name + "_CPS")
+        input_ch = data.timeSeries(channel.name)
+        cps_ch.setProperty("Pre-shift mass", input_ch.property("Pre-shift mass"))
+        cps_ch.setProperty("Post-shift mass", input_ch.property("Post-shift mass"))
+
+    drs.message("Calculating raw ratios...")
+    drs.progress(50)
+
+    # Declare the channels used in the calculations:
+    Rb85_CPS = data.timeSeriesList(data.Intermediate, {"Post-shift mass": "85"})[
+        0
+    ].data()
+    IoLog.debug(f"Sr post-shift masses: {86+massShift}, {87+massShift}, {88+massShift}")
+    Sr86_shifted_CPS = data.timeSeriesList(
+        data.Intermediate, {"Post-shift mass": f"{86+massShift}"}
+    )[0].data()
+    Sr87_shifted_CPS = data.timeSeriesList(
+        data.Intermediate, {"Post-shift mass": f"{87+massShift}"}
+    )[0].data()
+    Sr88_shifted_CPS = data.timeSeriesList(
+        data.Intermediate, {"Post-shift mass": f"{88+massShift}"}
+    )[0].data()
+
+    Rb87_CPS = Rb85_CPS * 0.38562
+    Rb85_Sr86s_Raw = Rb85_CPS / Sr86_shifted_CPS
+    Sr87s_Sr86s_Raw = Sr87_shifted_CPS / Sr86_shifted_CPS
+    Rb87_Sr86s_Raw = Rb87_CPS / Sr86_shifted_CPS
+    Sr87s_Rb87_Raw = Sr87_shifted_CPS / Rb87_CPS
+    Sr88s_Sr86s_Raw = Sr88_shifted_CPS / Sr86_shifted_CPS
+
+    # Gather up intermediate channels and add them as time series:
+    int_channel_names = [
+        "Rb87_CPS",
+        "Rb85_Sr86s_Raw",
+        "Sr87s_Sr86s_Raw",
+        "Rb87_Sr86s_Raw",
+        "Sr87s_Rb87_Raw",
+        "Sr88s_Sr86s_Raw",
+    ]
+    int_channels = [
+        Rb87_CPS,
+        Rb85_Sr86s_Raw,
+        Sr87s_Sr86s_Raw,
+        Rb87_Sr86s_Raw,
+        Sr87s_Rb87_Raw,
+        Sr88s_Sr86s_Raw,
+    ]
+    for name, channel in zip(int_channel_names, int_channels):
+        data.createTimeSeries(name, data.Intermediate, indexChannel.time(), channel)
+
+    drs.message("Correcting ratios...")
+    drs.progress(80)
+
+    print("Correcting ratios here...")
+
+    StdSpline_Rb87_Sr86s = data.spline(rmName, "Rb87_Sr86s_Raw").data()
+    try:
+        StdValue_Rb87_Sr86 = data.referenceMaterialData(rmName)["87Rb/86Sr"].value()
+    except KeyError:
+        IoLog.error(
+            "There was no 87Rb/86Sr value in the "
+            + rmName
+            + " datafile. Rb-Sr DRS cannot proceed."
+        )
+        drs.message("Error. See Messages")
+        drs.progress(100)
+        drs.finished()
+        return
+
+    print("StdSpline_Rb87_Sr86 mean = %f" % StdSpline_Rb87_Sr86s.mean())
+    print("StdValue_Rb87_Sr86 = %f" % StdValue_Rb87_Sr86)
+
+    StdCorr_Rb87_Sr86s = (Rb87_Sr86s_Raw) * StdValue_Rb87_Sr86 / StdSpline_Rb87_Sr86s
+    data.createTimeSeries(
+        "StdCorr_Rb87_Sr86s", data.Output, indexChannel.time(), StdCorr_Rb87_Sr86s
+    )
+
+    StdSpline_Sr87s_Sr86s = data.spline(rmName, "Sr87s_Sr86s_Raw").data()
+    try:
+        StdValue_Sr87_Sr86 = data.referenceMaterialData(rmName)["87Sr/86Sr"].value()
+    except KeyError:
+        IoLog.error(
+            "There was no 87Sr/86Sr value in the "
+            + rmName
+            + " datafile. Rb-Sr DRS cannot proceed."
+        )
+        drs.message("Error. See Messages")
+        drs.progress(100)
+        drs.finished()
+        return
+
+    print("StdSpline_Sr87s_Sr86s mean = %f" % StdSpline_Sr87s_Sr86s.mean())
+    print("StdValue_Sr87_Sr86 = %f" % StdValue_Sr87_Sr86)
+
+    StdCorr_Sr87s_Sr86s = (Sr87s_Sr86s_Raw) * StdValue_Sr87_Sr86 / StdSpline_Sr87s_Sr86s
+    data.createTimeSeries(
+        "StdCorr_Sr87s_Sr86s", data.Output, indexChannel.time(), StdCorr_Sr87s_Sr86s
+    )
+
+    # Register error correlations:
+    data.registerAssociatedResult(
+        "87Rb/86Sr - 87Sr/86Sr Rho", Rb87_Sr87_Sr86_error_corr
+    )
+    data.registerAssociatedResult("87Sr/87Rb - 87Rb/86Sr Rho", Rb87_Sr87_error_corr)
+
+    drs.message("Finished!")
+    drs.progress(100)
+    drs.finished()
+
+
+def settingsWidget():
+    """
+    This function puts together a user interface to configure the DRS.
+
+    It is important to have the last line of this function call:
+    drs.setSettingsWidget(widget)
+    """
+
+    widget = QtGui.QWidget()
+    formLayout = QtGui.QFormLayout()
+    widget.setLayout(formLayout)
+
+    timeSeriesNames = data.timeSeriesNames(data.Input)
+    defaultChannelName = ""
+    if timeSeriesNames:
+        defaultChannelName = timeSeriesNames[0]
+
+    rmNames = data.selectionGroupNames(data.ReferenceMaterial)
+
+    drs.setSetting("IndexChannel", "TotalBeam")
+    drs.setSetting("ReferenceMaterial", "G_NIST610")
+    drs.setSetting("Mask", False)
+    drs.setSetting("MaskChannel", defaultChannelName)
+    drs.setSetting("MaskCutoff", 0.1)
+    drs.setSetting("MaskTrim", 0.0)
+    drs.setSetting("MassShift", 19)
+
+    settings = drs.settings()
+
+    verticalSpacer = QtGui.QSpacerItem(
+        20, 20, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Minimum
+    )
+    formLayout.addItem(verticalSpacer)
+
+    indexComboBox = QtGui.QComboBox(widget)
+    indexComboBox.addItems(timeSeriesNames)
+    indexComboBox.setCurrentText(settings["IndexChannel"])
+    indexComboBox.currentTextChanged.connect(
+        lambda t: drs.setSetting("IndexChannel", t)
+    )
+    formLayout.addRow("Index channel", indexComboBox)
+
+    rmComboBox = QtGui.QComboBox(widget)
+    rmComboBox.addItems(rmNames)
+    if settings["ReferenceMaterial"] in rmNames:
+        rmComboBox.setCurrentText(settings["ReferenceMaterial"])
+    else:
+        rmComboBox.setCurrentText(rmNames[0])
+        drs.setSetting("ReferenceMaterial", rmNames[0])
+
+    rmComboBox.currentTextChanged.connect(
+        lambda t: drs.setSetting("ReferenceMaterial", t)
+    )
+    formLayout.addRow("Reference material", rmComboBox)
+
+    massShiftLineEdit = QtGui.QLineEdit(widget)
+    massShiftLineEdit.setText(settings["MassShift"])
+    massShiftLineEdit.textChanged.connect(lambda t: drs.setSetting("MassShift", int(t)))
+    formLayout.addRow("Sr mass shift value", massShiftLineEdit)
+
+    verticalSpacer = QtGui.QSpacerItem(
+        20, 40, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Minimum
+    )
+    formLayout.addItem(verticalSpacer)
+
+    maskCheckBox = QtGui.QCheckBox(widget)
+    maskCheckBox.setChecked(settings["Mask"])
+    maskCheckBox.toggled.connect(lambda t: drs.setSetting("Mask", bool(t)))
+    formLayout.addRow("Mask", maskCheckBox)
+
+    maskComboBox = QtGui.QComboBox(widget)
+    maskComboBox.addItems(data.timeSeriesNames(data.Input))
+    maskComboBox.setCurrentText(settings["MaskChannel"])
+    maskComboBox.currentTextChanged.connect(lambda t: drs.setSetting("MaskChannel", t))
+    formLayout.addRow("Mask channel", maskComboBox)
+
+    maskLineEdit = QtGui.QLineEdit(widget)
+    maskLineEdit.setText(settings["MaskCutoff"])
+    maskLineEdit.textChanged.connect(lambda t: drs.setSetting("MaskCutoff", float(t)))
+    formLayout.addRow("Mask cutoff", maskLineEdit)
+
+    maskTrimLineEdit = QtGui.QLineEdit(widget)
+    maskTrimLineEdit.setText(settings["MaskTrim"])
+    maskTrimLineEdit.textChanged.connect(lambda t: drs.setSetting("MaskTrim", float(t)))
+    formLayout.addRow("Mask trim", maskTrimLineEdit)
+
+    verticalSpacer2 = QtGui.QSpacerItem(
+        20, 40, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding
+    )
+    formLayout.addItem(verticalSpacer2)
+
+    drs.setSettingsWidget(widget)
