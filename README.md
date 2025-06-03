@@ -3,20 +3,18 @@
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14903540.svg)](https://doi.org/10.5281/zenodo.14903540)
 
 Supplementary code to the paper 
-> &nbsp;
-> 
+> &nbsp;\
 > **West Antarctic subglacial geology distinguished by coupled Pb isotopes and Rb–Sr ages in ice-rafted feldspars**
 > 
 > Arney, Thomas [![ORCID iD icon](https://orcid.org/sites/default/files/images/orcid_16x16.png)](https://orcid.org/0000-0003-4380-4079),
-> Hillenbrand, Claus-Dieter [![ORCID iD icon](https://orcid.org/sites/default/files/images/orcid_16x16.png)](https://orcid.org/0000-0003-0240-7317")
-> Belgrano, Thomas [![ORCID iD icon](https://orcid.org/sites/default/files/images/orcid_16x16.png)](https://orcid.org/0000-0003-2160-1895")
-> Milton, James [![ORCID iD icon](https://orcid.org/sites/default/files/images/orcid_16x16.png)](https://orcid.org/0000-0003-4245-5532")
-> Siddoway, Christine Smith [![ORCID iD icon](https://orcid.org/sites/default/files/images/orcid_16x16.png)](https://orcid.org/0000-0003-0478-6138")
-> Foster, Gavin [![ORCID iD icon](https://orcid.org/sites/default/files/images/orcid_16x16.png)](https://orcid.org/0000-0003-3688-9668")
-> Wilson, Paul [![ORCID iD icon](https://orcid.org/sites/default/files/images/orcid_16x16.png)](https://orcid.org/0000-0001-6425-8906")
-> Wellner, Julia [![ORCID iD icon](https://orcid.org/sites/default/files/images/orcid_16x16.png)](https://orcid.org/0000-0002-6807-8635")
-> Bohaty, Steven [![ORCID iD icon](https://orcid.org/sites/default/files/images/orcid_16x16.png)](https://orcid.org/0000-0002-1193-7398")
-> 
+> Hillenbrand, Claus-Dieter [![ORCID iD icon](https://orcid.org/sites/default/files/images/orcid_16x16.png)](https://orcid.org/0000-0003-0240-7317),
+> Belgrano, Thomas [![ORCID iD icon](https://orcid.org/sites/default/files/images/orcid_16x16.png)](https://orcid.org/0000-0003-2160-1895),
+> Milton, J. Andy [![ORCID iD icon](https://orcid.org/sites/default/files/images/orcid_16x16.png)](https://orcid.org/0000-0003-4245-5532),
+> Siddoway, Christine Smith [![ORCID iD icon](https://orcid.org/sites/default/files/images/orcid_16x16.png)](https://orcid.org/0000-0003-0478-6138),
+> Foster, Gavin [![ORCID iD icon](https://orcid.org/sites/default/files/images/orcid_16x16.png)](https://orcid.org/0000-0003-3688-9668),
+> Wilson, Paul [![ORCID iD icon](https://orcid.org/sites/default/files/images/orcid_16x16.png)](https://orcid.org/0000-0001-6425-8906),
+> Wellner, Julia [![ORCID iD icon](https://orcid.org/sites/default/files/images/orcid_16x16.png)](https://orcid.org/0000-0002-6807-8635),
+> Bohaty, Steve [![ORCID iD icon](https://orcid.org/sites/default/files/images/orcid_16x16.png)](https://orcid.org/0000-0002-1193-7398)\
 > &nbsp;
 
 
@@ -28,7 +26,7 @@ Contents:
 
 - [`1 Pb clustering.ipynb`](<1 Pb clustering.ipynb>) is the code used to preprocess the Pb isotope data, generate the training dataset, and cluster it.
 
-  - This saves the resultant models `Pb_RobustScaler.obj` and `Pb_GMM.obj` to enable re-use for classification without running the notebook again.
+  - This saves the resultant models `Pb_RobustScaler.obj` and `Pb_GMM.obj` to enable re-use for classification in the `2 Pb classification.ipynb` notebook without running the `1 Pb clustering.ipynb` notebook again.
 
 - [`2 Pb classification.ipynb`](<2 Pb classification.ipynb>) uses the fitted model to classify the full Pb isotope dataset.
 
