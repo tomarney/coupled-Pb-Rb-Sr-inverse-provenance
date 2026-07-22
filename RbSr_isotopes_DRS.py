@@ -1,10 +1,10 @@
-# / Type: DRS
-# / Name: Rb-Sr Isotopes (Arney et al.)
-# / Authors: iolite Software, T. Arney
-# / Description: A basic Rb-Sr isotope DRS, based on that described in Redaa et al. J. Anal. At. Spectrom., 2021, 36, 322
-# / References: https://doi.org/10.1039/D0JA00299B
-# / Version: 0.3
-# / Contact: support@iolite-software.com
+#/ Type: DRS
+#/ Name: Rb-Sr Isotopes (Arney et al.)
+#/ Authors: iolite Software, T. Arney
+#/ Description: A basic Rb-Sr isotope DRS, based on that described in Redaa et al. J. Anal. At. Spectrom., 2021, 36, 322
+#/ References: https://doi.org/10.1039/D0JA00299B
+#/ Version: 0.3
+#/ Contact: support@iolite-software.com
 
 from iolite import QtGui
 from iolite.types import Result

@@ -1,0 +1,6 @@
+install.packages("pak")
+install.packages("irkernel")
+install.packages("readr")
+install.packages("dplyr")
+install.packages("tidyr")
+pak::pak("IsoplotR@6.8")

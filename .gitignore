@@ -7,6 +7,7 @@ data/generated/
 .Rhistory
 .RData
 .Ruserdata
+.lintr
 
 
 ### === PYTHON generic ===
